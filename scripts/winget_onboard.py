@@ -78,8 +78,8 @@ def main():
 
     # Configure Git to use the token for HTTPS operations
     # This avoids the 'gh auth login' scope issues
-    subprocess.run(["git", "config", "--global", "user.name", "Community Maintainer"], check=True)
-    subprocess.run(["git", "config", "--global", "user.email", "maintainer@example.com"], check=True)
+    subprocess.run(["git", "config", "--global", "user.name", "AF Community Maintainer"], check=True)
+    subprocess.run(["git", "config", "--global", "user.email", "af-community-maintainer@proton.me"], check=True)
 
     # Set environment variable for GitHub CLI to use the token automatically
     os.environ["GH_TOKEN"] = token
