@@ -5,9 +5,17 @@ import requests
 import hashlib
 import yaml
 import shutil
+import stat
 
 # Path to the official Winget repo
 WINGET_REPO = "microsoft/winget-pkgs"
+
+def remove_readonly(func, path, excinfo):
+    """
+    Error handler for shutil.rmtree to handle read-only files on Windows.
+    """
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
 
 def get_sha256(url):
     print(f"Downloading and hashing: {url}")
@@ -86,19 +94,17 @@ def main():
     owner = os.environ.get('GITHUB_REPOSITORY_OWNER')
     
     if not owner:
-        # Try getting it from the repository slug if available
         repo_slug = os.environ.get('GITHUB_REPOSITORY')
         if repo_slug and '/' in repo_slug:
             owner = repo_slug.split('/')[0]
 
     if not owner:
-        # Last resort: Ask the GH CLI who we are
         print("Querying GitHub API for current user...")
         owner_result = subprocess.run(["gh", "api", "user", "--privileged", "--query", "login"], capture_output=True, text=True)
         owner = owner_result.stdout.strip().replace('"', '')
 
     if not owner:
-        print("Error: Could not determine repository owner. URL construction will fail.")
+        print("Error: Could not determine repository owner.")
         return
 
     print(f"Context: Identified owner as '{owner}'")
@@ -119,22 +125,19 @@ def main():
         base_path = f"manifests/{first_letter}/{id_path}/{ver}"
         
         print(f"Ensuring fork of {WINGET_REPO} exists...")
-        # Fork without cloning
         subprocess.run(["gh", "repo", "fork", WINGET_REPO, "--clone=false"], check=False)
         
         repo_dir = f"winget-pkgs-{pkg_id.replace('.', '-')}"
         if os.path.exists(repo_dir):
-            shutil.rmtree(repo_dir)
+            shutil.rmtree(repo_dir, onexc=remove_readonly)
             
         print(f"Cloning fork from {owner}/winget-pkgs...")
-        # Use token-authenticated URL
         authenticated_url = f"https://x-access-token:{token}@github.com/{owner}/winget-pkgs.git"
         
         try:
             subprocess.run(["git", "clone", "--depth", "1", authenticated_url, repo_dir], check=True)
         except subprocess.CalledProcessError:
-            print(f"Clone failed. URL used: https://***@github.com/{owner}/winget-pkgs.git")
-            print("Check if the fork exists and the GH_PAT has correct permissions.")
+            print(f"Clone failed for {owner}/winget-pkgs.")
             continue
 
         os.chdir(repo_dir)
@@ -168,7 +171,7 @@ def main():
         subprocess.run(pr_cmd, check=True)
         
         os.chdir("..")
-        shutil.rmtree(repo_dir)
+        shutil.rmtree(repo_dir, onexc=remove_readonly)
         print(f"Finished {pkg_id} onboarding.\n")
 
 if __name__ == "__main__":
