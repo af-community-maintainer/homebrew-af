@@ -75,12 +75,33 @@ def main():
         print("Error: GH_PAT environment variable not found.")
         return
 
+    # Set environment variable for GitHub CLI immediately
+    os.environ["GH_TOKEN"] = token
+
     # Configure Git identity
     subprocess.run(["git", "config", "--global", "user.name", "Community Maintainer"], check=True)
-    subprocess.run(["git", "config", "--global", "user.email", "af-community-maintainer@proton.me"], check=True)
+    subprocess.run(["git", "config", "--global", "user.email", "maintainer@example.com"], check=True)
 
-    # Set environment variable for GitHub CLI
-    os.environ["GH_TOKEN"] = token
+    # 1. Determine Owner with a robust waterfall approach
+    owner = os.environ.get('GITHUB_REPOSITORY_OWNER')
+    
+    if not owner:
+        # Try getting it from the repository slug if available
+        repo_slug = os.environ.get('GITHUB_REPOSITORY')
+        if repo_slug and '/' in repo_slug:
+            owner = repo_slug.split('/')[0]
+
+    if not owner:
+        # Last resort: Ask the GH CLI who we are
+        print("Querying GitHub API for current user...")
+        owner_result = subprocess.run(["gh", "api", "user", "--privileged", "--query", "login"], capture_output=True, text=True)
+        owner = owner_result.stdout.strip().replace('"', '')
+
+    if not owner:
+        print("Error: Could not determine repository owner. URL construction will fail.")
+        return
+
+    print(f"Context: Identified owner as '{owner}'")
     
     df = pd.read_csv('packages.csv')
     
@@ -91,29 +112,31 @@ def main():
         desc = row['description']
         
         pkg_id, ver, manifests = generate_manifests(edition, version, url, desc)
-        print(f"Processing initial onboarding for {pkg_id}...")
+        print(f"\n--- Processing initial onboarding for {pkg_id} ---")
 
         first_letter = pkg_id[0].lower()
         id_path = pkg_id.replace('.', '/')
         base_path = f"manifests/{first_letter}/{id_path}/{ver}"
         
-        print(f"Forking {WINGET_REPO}...")
-        # Fork but don't clone yet
+        print(f"Ensuring fork of {WINGET_REPO} exists...")
+        # Fork without cloning
         subprocess.run(["gh", "repo", "fork", WINGET_REPO, "--clone=false"], check=False)
         
-        repo_dir = "winget-pkgs"
+        repo_dir = f"winget-pkgs-{pkg_id.replace('.', '-')}"
         if os.path.exists(repo_dir):
             shutil.rmtree(repo_dir)
             
-        # Get the current owner (the maintainer account)
-        owner_result = subprocess.run(["gh", "api", "user", "--privileged", "--query", "login"], capture_output=True, text=True)
-        owner = owner_result.stdout.strip().strip('"')
-        
         print(f"Cloning fork from {owner}/winget-pkgs...")
-        # Crucial: Use the token in the URL for authenticated push later
+        # Use token-authenticated URL
         authenticated_url = f"https://x-access-token:{token}@github.com/{owner}/winget-pkgs.git"
-        subprocess.run(["git", "clone", "--depth", "1", authenticated_url, repo_dir], check=True)
         
+        try:
+            subprocess.run(["git", "clone", "--depth", "1", authenticated_url, repo_dir], check=True)
+        except subprocess.CalledProcessError:
+            print(f"Clone failed. URL used: https://***@github.com/{owner}/winget-pkgs.git")
+            print("Check if the fork exists and the GH_PAT has correct permissions.")
+            continue
+
         os.chdir(repo_dir)
         
         branch_name = f"onboard-{pkg_id}-{ver}".replace('.', '-').lower()
@@ -132,7 +155,6 @@ def main():
         subprocess.run(["git", "commit", "-m", f"Add {pkg_id} version {ver}"], check=True)
         
         print("Pushing to fork...")
-        # Since the 'origin' URL already contains the token, this will work seamlessly
         subprocess.run(["git", "push", "origin", branch_name, "--force"], check=True)
         
         print("Creating Pull Request...")
@@ -147,7 +169,7 @@ def main():
         
         os.chdir("..")
         shutil.rmtree(repo_dir)
-        print(f"Finished {pkg_id}\n")
+        print(f"Finished {pkg_id} onboarding.\n")
 
 if __name__ == "__main__":
     main()
