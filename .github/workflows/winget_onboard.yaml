@@ -1,0 +1,25 @@
+name: Initial Onboarding (Winget)
+
+on:
+  workflow_dispatch: # Manual trigger only
+
+jobs:
+  onboard:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Dependencies
+        run: pip install pandas requests
+
+      - name: Run Onboarding Script
+        shell: bash
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: python scripts/winget_onboard.py
