@@ -1,4 +1,4 @@
-edition,version,source_url_win,description,homepage
-standard,2.6.4.4,https://download.archform.com/ArchForm_win_2_6_4_4.zip,Professional Orthodontic Design,https://archform.com
-cnc,2.6.4.13,https://download.archform.com/ArchForm_win_cnc_2_6_4_13.zip,Professional Orthodontic Design with CNC tool,https://archform.com
-dpa,2.6.4.0,https://download.archform.com/ArchForm_win_dpa_2_6_4_0.zip,Professional Orthodontic Design with DPA tool,https://archform.com
+edition,version,source_url_win,description,summary,homepage,icon_url,license_url,docs_url,mailing_list_url,project_source_url
+standard,2.6.4.4,https://download.archform.com/ArchForm_win_2_6_4_4.zip,Professional Orthodontic Design,Professional Orthodontic Design software.,https://archform.com,https://www.archform.com/favicon.ico,https://www.archform.com/terms-of-service,https://support.archform.com,mailto:support@archform.co,https://www.archform.com/downloadarchform-e5r6t7yiughvb
+cnc,2.6.4.13,https://download.archform.com/ArchForm_win_cnc_2_6_4_13.zip,Professional Orthodontic Design with CNC tool,Orthodontic design with CNC manufacturing support.,https://archform.com,https://www.archform.com/favicon.ico,https://www.archform.com/terms-of-service,https://support.archform.com,mailto:support@archform.co,https://www.archform.com/downloadarchform-e5r6t7yiughvb
+dpa,2.6.4.0,https://download.archform.com/ArchForm_win_dpa_2_6_4_0.zip,Professional Orthodontic Design with DPA tool,Orthodontic design with DPA analysis module.,https://archform.com,https://www.archform.com/favicon.ico,https://www.archform.com/terms-of-service,https://support.archform.com,mailto:support@archform.co,https://www.archform.com/downloadarchform-e5r6t7yiughvb
