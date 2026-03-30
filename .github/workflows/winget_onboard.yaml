@@ -16,7 +16,7 @@ jobs:
           python-version: '3.x'
 
       - name: Install Dependencies
-        run: pip install pandas requests
+        run: pip install pandas requests PyYAML
 
       - name: Run Onboarding Script
         shell: bash
