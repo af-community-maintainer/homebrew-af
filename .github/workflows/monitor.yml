@@ -1,0 +1,33 @@
+name: Weekly Version Monitor
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  check-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Dependencies
+        run: pip install requests beautifulsoup4 pandas
+
+      - name: Run Scraper
+        run: python scripts/monitor_site.py
+
+      - name: Commit Changes
+        run: |
+          git config --local user.email "af-community-maintainer@proton.me"
+          git config --local user.name "AF Community Maintainer"
+          git add packages.csv
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: automated version update" && git push)
