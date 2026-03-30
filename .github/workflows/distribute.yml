@@ -1,0 +1,29 @@
+name: Distribute Packages
+
+on:
+  push:
+    paths:
+      - 'packages.csv'
+  workflow_dispatch:
+
+jobs:
+  process-changes:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Dependencies
+        run: pip install pandas requests
+
+      - name: Run Distribution Logic
+        shell: bash
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+        run: python scripts/distribute.py
