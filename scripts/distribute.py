@@ -31,13 +31,14 @@ def submit_winget(edition, version, url, desc):
     pkg_id = f"ArchForm.{edition.upper()}" if edition != 'standard' else "ArchForm.ArchForm"
     print(f"Submitting {pkg_id} v{version} to Winget...")
     setup_winget_create()
-    # Note: If this is the first time submitting this ID, 'update' might fail.
-    # Manual 'wingetcreate new' might be required once for new IDs.
+    
+    # Main distribution logic now only handles updates
     cmd = f".\\wingetcreate.exe update {pkg_id} --version {version} --urls {url} --token {os.environ['GH_PAT']}"
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    
     print(result.stdout)
     if result.stderr:
-        print(f"Winget Error: {result.stderr}")
+        print(f"Winget Output/Error: {result.stderr}")
 
 def submit_chocolatey(edition, version, url, desc):
     pkg_id = f"archform-{edition}" if edition != 'standard' else "archform"
@@ -56,13 +57,12 @@ def submit_chocolatey(edition, version, url, desc):
     <tags>orthodontics dental design</tags>
   </metadata>
   <files>
-    <file src="tools\**" target="tools" />
+    <file src="tools\\**" target="tools" />
   </files>
 </package>"""
 
     os.makedirs("tools", exist_ok=True)
-    # Using Install-ChocolateyZipPackage for .zip sources
-    install_script = f"""
+    install_script = rf"""
 $packageName = '{pkg_id}'
 $url = '{url}'
 $zipFileName = '{pkg_id}_{version}.zip'
@@ -81,16 +81,16 @@ Install-ChocolateyZipPackage @packageArgs
     with open(f"{pkg_id}.nuspec", "w") as f:
         f.write(nuspec)
     
-    # Pack and push using Choco CLI (available on windows-latest)
     subprocess.run(f"choco pack {pkg_id}.nuspec", shell=True)
-    # Find the generated nupkg
-    nupkg = [f for f in os.listdir(".") if f.endswith(".nupkg")][0]
-    push_cmd = f"choco push {nupkg} --api-key {os.environ['CHOCO_API_KEY']} --source https://push.chocolatey.org/ --force"
-    subprocess.run(push_cmd, shell=True)
     
-    # Cleanup
+    nupkgs = [f for f in os.listdir(".") if f.endswith(".nupkg")]
+    if nupkgs:
+        nupkg = nupkgs[0]
+        push_cmd = f"choco push {nupkg} --api-key {os.environ['CHOCO_API_KEY']} --source https://push.chocolatey.org/ --force"
+        subprocess.run(push_cmd, shell=True)
+        os.remove(nupkg)
+    
     os.remove(f"{pkg_id}.nuspec")
-    os.remove(nupkg)
 
 def submit_homebrew(edition, version, win_url, desc):
     if edition == 'dpa': 
@@ -104,7 +104,7 @@ def submit_homebrew(edition, version, win_url, desc):
 
     cask_id = f"archform-{edition}" if edition != 'standard' else "archform"
     token = os.environ['GH_PAT']
-    repo_full_name = os.environ.get('GITHUB_REPOSITORY') # Format: "owner/repo"
+    repo_full_name = os.environ.get('GITHUB_REPOSITORY')
     
     cask_content = f"""cask "{cask_id}" do
   version "{version}"
@@ -118,7 +118,6 @@ def submit_homebrew(edition, version, win_url, desc):
   app "ArchForm.app"
 end
 """
-    # Use GitHub API to push the Cask file to your tap repository
     path = f"Casks/{cask_id}.rb"
     api_url = f"https://api.github.com/repos/{repo_full_name}/contents/{path}"
     headers = {
@@ -126,7 +125,6 @@ end
         "Accept": "application/vnd.github.v3+json"
     }
     
-    # Check if the file already exists to get its blob SHA (required for updates)
     res = requests.get(api_url, headers=headers)
     existing_sha = res.json().get('sha') if res.status_code == 200 else None
     
@@ -144,7 +142,6 @@ end
         print(f"Failed to push to Homebrew Tap: {put_res.text}")
 
 def main():
-    # Force generic identity for all Git/Metadata operations
     subprocess.run(['git', 'config', 'user.name', 'Community Maintainer'], check=True)
     subprocess.run(['git', 'config', 'user.email', 'maintainer@example.com'], check=True)
 
@@ -156,7 +153,6 @@ def main():
             edition = row['edition'].lower()
             desc = row['description']
 
-            # Execute submissions
             submit_winget(edition, ver, win_url, desc)
             submit_chocolatey(edition, ver, win_url, desc)
             submit_homebrew(edition, ver, win_url, desc)
