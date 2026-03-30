@@ -7,7 +7,8 @@ import json
 import base64
 
 def get_sha256(url):
-    """Downloads the file to calculate SHA256 (Required for Homebrew and Zip validation)"""
+    """Downloads the file to calculate SHA256 (Required for Security)"""
+    print(f"Calculating SHA256 for: {url}")
     try:
         response = requests.get(url, stream=True, timeout=30)
         response.raise_for_status()
@@ -20,7 +21,6 @@ def get_sha256(url):
         return None
 
 def setup_winget_create():
-    """Downloads wingetcreate if not present (Windows Runner)"""
     if not os.path.exists("wingetcreate.exe"):
         url = "https://github.com/microsoft/winget-create/releases/latest/download/wingetcreate.exe"
         r = requests.get(url)
@@ -31,19 +31,33 @@ def submit_winget(edition, version, url, desc):
     pkg_id = f"ArchForm.{edition.upper()}" if edition != 'standard' else "ArchForm.ArchForm"
     print(f"Submitting {pkg_id} v{version} to Winget...")
     setup_winget_create()
-    
-    # Main distribution logic now only handles updates
     cmd = f".\\wingetcreate.exe update {pkg_id} --version {version} --urls {url} --token {os.environ['GH_PAT']}"
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    
     print(result.stdout)
-    if result.stderr:
-        print(f"Winget Output/Error: {result.stderr}")
 
-def submit_chocolatey(edition, version, url, desc):
+def submit_chocolatey(row, version):
+    edition = row['edition'].lower()
+    url = row['source_url_win']
     pkg_id = f"archform-{edition}" if edition != 'standard' else "archform"
-    print(f"Submitting {pkg_id} v{version} to Chocolatey (Zip Install)...")
     
+    print(f"Submitting {pkg_id} v{version} to Chocolatey...")
+    
+    checksum = get_sha256(url)
+    if not checksum:
+        print(f"Skipping Chocolatey for {pkg_id} due to hash failure.")
+        return
+
+    # Metadata from CSV
+    summary = row.get('summary', row['description'])
+    icon_url = row.get('icon_url', '')
+    license_url = row.get('license_url', '')
+    project_url = row.get('homepage', 'https://archform.com')
+    docs_url = row.get('docs_url', '')
+    mailing_list_url = row.get('mailing_list_url', '')
+    project_source_url = row.get('project_source_url', '')
+    
+    repo_url = f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', 'community/repo')}"
+
     nuspec = f"""<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
@@ -52,9 +66,18 @@ def submit_chocolatey(edition, version, url, desc):
     <title>ArchForm {edition.capitalize()}</title>
     <authors>ArchForm</authors>
     <owners>Community Maintainer</owners>
-    <projectUrl>https://archform.com</projectUrl>
-    <description>{desc}</description>
-    <tags>orthodontics dental design</tags>
+    <licenseUrl>{license_url}</licenseUrl>
+    <projectUrl>{project_url}</projectUrl>
+    <iconUrl>{icon_url}</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>{row['description']}</description>
+    <summary>{summary}</summary>
+    <releaseNotes>{project_url}</releaseNotes>
+    <tags>archform orthodontics dental design {edition}</tags>
+    <packageSourceUrl>{repo_url}</packageSourceUrl>
+    <docsUrl>{docs_url}</docsUrl>
+    <mailingListUrl>{mailing_list_url}</mailingListUrl>
+    <projectSourceUrl>{project_source_url}</projectSourceUrl>
   </metadata>
   <files>
     <file src="tools\\**" target="tools" />
@@ -65,13 +88,13 @@ def submit_chocolatey(edition, version, url, desc):
     install_script = rf"""
 $packageName = '{pkg_id}'
 $url = '{url}'
-$zipFileName = '{pkg_id}_{version}.zip'
-
 $packageArgs = @{{
   packageName   = $packageName
   unzipLocation = "$(Split-Path -Parent $MyInvocation.MyCommand.Definition)"
   url           = $url
   softwareName  = 'ArchForm'
+  checksum      = '{checksum}'
+  checksumType  = 'sha256'
 }}
 
 Install-ChocolateyZipPackage @packageArgs
@@ -82,23 +105,16 @@ Install-ChocolateyZipPackage @packageArgs
         f.write(nuspec)
     
     subprocess.run(f"choco pack {pkg_id}.nuspec", shell=True)
-    
     nupkgs = [f for f in os.listdir(".") if f.endswith(".nupkg")]
     if nupkgs:
         nupkg = nupkgs[0]
-        push_cmd = f"choco push {nupkg} --api-key {os.environ['CHOCO_API_KEY']} --source https://push.chocolatey.org/ --force"
-        subprocess.run(push_cmd, shell=True)
+        subprocess.run(f"choco push {nupkg} --api-key {os.environ['CHOCO_API_KEY']} --source https://push.chocolatey.org/ --force", shell=True)
         os.remove(nupkg)
-    
     os.remove(f"{pkg_id}.nuspec")
 
 def submit_homebrew(edition, version, win_url, desc):
-    if edition == 'dpa': 
-        print("Skipping Homebrew for DPA (Windows only).")
-        return
-    
+    if edition == 'dpa': return
     mac_url = win_url.replace('_win_', '_mac_')
-    print(f"Generating Homebrew Cask for {edition}...")
     sha = get_sha256(mac_url)
     if not sha: return
 
@@ -120,10 +136,7 @@ end
 """
     path = f"Casks/{cask_id}.rb"
     api_url = f"https://api.github.com/repos/{repo_full_name}/contents/{path}"
-    headers = {
-        "Authorization": f"token {token}",
-        "Accept": "application/vnd.github.v3+json"
-    }
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
     
     res = requests.get(api_url, headers=headers)
     existing_sha = res.json().get('sha') if res.status_code == 200 else None
@@ -132,18 +145,12 @@ end
         "message": f"update {cask_id} to {version}",
         "content": base64.b64encode(cask_content.encode()).decode(),
     }
-    if existing_sha:
-        payload["sha"] = existing_sha
-    
-    put_res = requests.put(api_url, headers=headers, data=json.dumps(payload))
-    if put_res.status_code in [200, 201]:
-        print(f"Successfully updated {cask_id} in Homebrew Tap.")
-    else:
-        print(f"Failed to push to Homebrew Tap: {put_res.text}")
+    if existing_sha: payload["sha"] = existing_sha
+    requests.put(api_url, headers=headers, data=json.dumps(payload))
 
 def main():
-    subprocess.run(['git', 'config', 'user.name', 'Community Maintainer'], check=True)
-    subprocess.run(['git', 'config', 'user.email', 'maintainer@example.com'], check=True)
+    subprocess.run(['git', 'config', '--global', 'user.name', 'Community Maintainer'], check=True)
+    subprocess.run(['git', 'config', '--global', 'user.email', 'maintainer@example.com'], check=True)
 
     try:
         df = pd.read_csv('packages.csv')
@@ -154,11 +161,11 @@ def main():
             desc = row['description']
 
             submit_winget(edition, ver, win_url, desc)
-            submit_chocolatey(edition, ver, win_url, desc)
+            submit_chocolatey(row, ver)
             submit_homebrew(edition, ver, win_url, desc)
             
     except Exception as e:
-        print(f"Workflow execution failed: {e}")
+        print(f"Workflow failed: {e}")
 
 if __name__ == "__main__":
     main()
