@@ -1,7 +1,10 @@
-name: Initial Onboarding (Winget)
+name: Winget Onboarding / Update
 
 on:
-  workflow_dispatch: # Manual trigger only
+  workflow_dispatch:
+  push:
+    paths:
+      - 'packages.csv'
 
 jobs:
   onboard:
@@ -18,8 +21,17 @@ jobs:
       - name: Install Dependencies
         run: pip install pandas requests PyYAML
 
-      - name: Run Onboarding Script
+      - name: Sync fork and onboard (gated on first acceptance)
         shell: bash
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
-        run: python scripts/winget_onboard.py
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -f flags/winget-not-accepted ]; then
+            echo "Winget packages not yet accepted — skipping automatic updates."
+            exit 0
+          fi
+          echo "Syncing fork with upstream..."
+          gh repo sync af-community-maintainer/winget-pkgs
+          echo "Running winget onboarding/update..."
+          python scripts/winget_onboard.py

@@ -120,8 +120,8 @@ def main():
 
     os.environ["GH_TOKEN"] = token
 
-    subprocess.run(["git", "config", "--global", "user.name", "Community Maintainer"], check=True)
-    subprocess.run(["git", "config", "--global", "user.email", "maintainer@example.com"], check=True)
+    subprocess.run(["git", "config", "--global", "user.name", "AF Community Maintainer"], check=True)
+    subprocess.run(["git", "config", "--global", "user.email", "af-community-maintainer@proton.me"], check=True)
 
     owner = os.environ.get('GITHUB_REPOSITORY_OWNER')
     if not owner:

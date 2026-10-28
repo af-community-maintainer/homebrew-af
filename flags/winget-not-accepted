@@ -1,0 +1,4 @@
+Automatic winget version updates are gated until the initial ArchForm
+packages are accepted into microsoft/winget-pkgs. The Weekly Version
+Monitor removes this file once that happens, which enables the Winget
+Onboarding/Update workflow to run on packages.csv changes.

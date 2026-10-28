@@ -31,3 +31,29 @@ jobs:
           git config --local user.name "AF Community Maintainer"
           git add packages.csv
           git diff --quiet && git diff --staged --quiet || (git commit -m "chore: automated version update" && git push)
+
+      - name: Open winget gate once packages are accepted
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          git config --local user.email "af-community-maintainer@proton.me"
+          git config --local user.name "AF Community Maintainer"
+          if [ ! -f flags/winget-not-accepted ]; then
+            echo "Winget gate already open."
+            exit 0
+          fi
+          accepted=1
+          for pkg in ArchForm CNC DPA; do
+            if ! gh api "repos/microsoft/winget-pkgs/contents/manifests/a/ArchForm/$pkg" >/dev/null 2>&1; then
+              accepted=0
+              echo "Not yet merged: ArchForm.$pkg"
+            fi
+          done
+          if [ "$accepted" = "1" ]; then
+            git rm -q flags/winget-not-accepted
+            git commit -m "chore: ArchForm accepted into winget — enable automatic updates"
+            git push
+            echo "Winget gate opened."
+          else
+            echo "Still gated — waiting on winget merge."
+          fi
