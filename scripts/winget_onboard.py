@@ -6,6 +6,8 @@ import hashlib
 import yaml
 import shutil
 import stat
+import zipfile
+import io
 
 # Path to the official Winget repo
 WINGET_REPO = "microsoft/winget-pkgs"
@@ -26,12 +28,34 @@ def get_sha256(url):
         sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
+def get_sha256_and_inner(url):
+    """Download a zip and return (sha256, inner filename)."""
+    print(f"Downloading and inspecting: {url}")
+    try:
+        response = requests.get(url, stream=True, timeout=60)
+        response.raise_for_status()
+        sha256_hash = hashlib.sha256()
+        buf = io.BytesIO()
+        for byte_block in response.iter_content(65536):
+            sha256_hash.update(byte_block)
+            buf.write(byte_block)
+        buf.seek(0)
+        with zipfile.ZipFile(buf) as z:
+            names = [n for n in z.namelist() if not n.endswith("/")]
+        inner = names[0] if names else ""
+        return sha256_hash.hexdigest(), inner
+    except Exception as e:
+        print(f"Error downloading/inspecting {url}: {e}")
+        return None, None
+
 def generate_manifests(edition, version, url, desc):
     publisher = "ArchForm"
     app_name = f"ArchForm {edition.upper()}" if edition != 'standard' else "ArchForm"
     pkg_id = f"{publisher}.{edition.upper()}" if edition != 'standard' else f"{publisher}.{publisher}"
     
-    sha256 = get_sha256(url)
+    sha256, inner_exe = get_sha256_and_inner(url)
+    if not sha256 or not inner_exe:
+        raise RuntimeError(f"Failed to download/hash/inspect {url}")
     
     # 1. Version Manifest
     version_manifest = {
@@ -55,7 +79,7 @@ def generate_manifests(edition, version, url, desc):
             "InstallerUrl": url,
             "InstallerSha256": sha256,
             "NestedInstallerFiles": [{
-                "RelativeFilePath": f"{app_name}.exe" if edition != 'standard' else "ArchForm.exe",
+                "RelativeFilePath": inner_exe,
                 "PortableCommandAlias": edition if edition != 'standard' else "archform"
             }]
         }],

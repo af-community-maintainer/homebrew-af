@@ -22,7 +22,9 @@ def scrape_latest():
                 version = extract_version(link)
                 if '_dpa_' in link:
                     found['dpa'] = {'version': version, 'url': link}
-                elif '_cnc_' not in link:
+                elif '_cnc_' in link:
+                    found['cnc'] = {'version': version, 'url': link}
+                else:
                     found['standard'] = {'version': version, 'url': link}
         return found
     except Exception as e:
