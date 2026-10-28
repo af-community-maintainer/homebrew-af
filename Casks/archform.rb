@@ -1,11 +1,11 @@
 cask "archform" do
-  version "2.6.4.4"
-  sha256 "c8c2a38d97f521473ae624d8b0a34cc225fe9c6c917028f9eaf0384a4c13fbe1"
+  version "2.7.2"
+  sha256 "673a616937718314495914e114e3c8889a51026a5508b8e0c54884546d4d800f"
 
-  url "https://download.archform.com/ArchForm_mac_2_6_4_4.zip"
+  url "https://download.archform.co/ArchForm_mac_2_7_2.zip"
   name "ArchForm Standard"
   desc "Professional Orthodontic Design"
   homepage "https://archform.com"
 
-  app "ArchForm.app"
+  pkg "ArchForm-mac-2_7_2-20260806.pkg"
 end
