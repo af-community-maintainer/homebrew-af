@@ -42,21 +42,6 @@ def get_sha256_and_inner(url):
         print(f"Error downloading/inspecting {url}: {e}")
         return None, None
 
-def setup_winget_create():
-    if not os.path.exists("wingetcreate.exe"):
-        url = "https://github.com/microsoft/winget-create/releases/latest/download/wingetcreate.exe"
-        r = requests.get(url)
-        with open("wingetcreate.exe", "wb") as f:
-            f.write(r.content)
-
-def submit_winget(edition, version, url, desc):
-    pkg_id = f"ArchForm.{edition.upper()}" if edition != 'standard' else "ArchForm.ArchForm"
-    print(f"Submitting {pkg_id} v{version} to Winget...")
-    setup_winget_create()
-    cmd = f".\\wingetcreate.exe update {pkg_id} --version {version} --urls {url} --token {os.environ['GH_PAT']}"
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    print(result.stdout)
-
 def submit_chocolatey(row, version):
     edition = row['edition'].lower()
     url = row['source_url_win']
@@ -77,7 +62,7 @@ def submit_chocolatey(row, version):
     docs_url = row.get('docs_url', '')
     project_source_url = row.get('project_source_url', '')
     
-    repo_url = f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', 'community/repo')}"
+    repo_url = "https://github.com/af-community-maintainer/chocolatey-af"
 
     nuspec = f"""<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
@@ -184,7 +169,6 @@ def main():
             edition = row['edition'].lower()
             desc = row['description']
 
-            submit_winget(edition, ver, win_url, desc)
             submit_chocolatey(row, ver)
             submit_homebrew(edition, ver, win_url, desc)
             
