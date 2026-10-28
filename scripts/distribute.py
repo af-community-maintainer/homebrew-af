@@ -135,7 +135,7 @@ def submit_homebrew(edition, version, win_url, desc):
     if edition == 'dpa': return
     mac_url = win_url.replace('_win_', '_mac_')
     sha, inner = get_sha256_and_inner(mac_url)
-    if not sha: return
+    if not sha or not inner: return
 
     cask_id = f"archform-{edition}" if edition != 'standard' else "archform"
     token = os.environ['GH_PAT']
