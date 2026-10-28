@@ -7,8 +7,28 @@ TARGET_URL = "https://www.archform.com/downloadarchform-e5r6t7yiughvb"
 CSV_PATH = "packages.csv"
 
 def extract_version(url):
-    match = re.search(r'_(\d+_\d+_\d+_\d+)\.', url)
+    match = re.search(r'_(\d+_\d+_\d+(?:_\d+)?)\.', url)
     return match.group(1).replace('_', '.') if match else None
+
+def probe_cnc(standard_version):
+    """CNC isn't listed on the download page; its URL follows the mainline
+    version with a .0 suffix (e.g. 2.7.2 -> ArchForm_win_cnc_2_7_2_0.zip)."""
+    base = standard_version.replace('.', '_')
+    candidates = [
+        f"https://download.archform.co/ArchForm_win_cnc_{base}_0.zip",
+        f"https://download.archform.co/ArchForm_win_cnc_{base}.zip",
+    ]
+    for url in candidates:
+        try:
+            r = requests.get(url, stream=True, timeout=20)
+            if r.status_code == 200:
+                r.close()
+                version = extract_version(url)
+                return {'version': version, 'url': url}
+            r.close()
+        except Exception:
+            pass
+    return None
 
 def scrape_latest():
     try:
@@ -26,6 +46,11 @@ def scrape_latest():
                     found['cnc'] = {'version': version, 'url': link}
                 else:
                     found['standard'] = {'version': version, 'url': link}
+
+        if 'standard' in found and found['standard']['version'] and 'cnc' not in found:
+            cnc = probe_cnc(found['standard']['version'])
+            if cnc:
+                found['cnc'] = cnc
         return found
     except Exception as e:
         print(f"Scrape failed: {e}")
