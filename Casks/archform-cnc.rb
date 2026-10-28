@@ -7,5 +7,5 @@ cask "archform-cnc" do
   desc "Professional Orthodontic Design with CNC tool"
   homepage "https://archform.com"
 
-  app "ArchForm.app"
+  pkg "ArchForm-mac-cnc_2_7_2_0-20260807.pkg"
 end

@@ -7,5 +7,5 @@ cask "archform" do
   desc "Professional Orthodontic Design"
   homepage "https://archform.com"
 
-  app "ArchForm.app"
+  pkg "ArchForm-mac-2_7_2-20260806.pkg"
 end

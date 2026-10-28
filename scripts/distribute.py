@@ -5,6 +5,8 @@ import hashlib
 import requests
 import json
 import base64
+import zipfile
+import io
 
 def get_sha256(url):
     """Downloads the file to calculate SHA256 (Required for Security)"""
@@ -19,6 +21,26 @@ def get_sha256(url):
     except Exception as e:
         print(f"Error calculating hash for {url}: {e}")
         return None
+
+def get_sha256_and_inner(url):
+    """Download a zip and return (sha256, inner filename)."""
+    print(f"Downloading and inspecting: {url}")
+    try:
+        response = requests.get(url, stream=True, timeout=60)
+        response.raise_for_status()
+        sha256_hash = hashlib.sha256()
+        buf = io.BytesIO()
+        for byte_block in response.iter_content(65536):
+            sha256_hash.update(byte_block)
+            buf.write(byte_block)
+        buf.seek(0)
+        with zipfile.ZipFile(buf) as z:
+            names = [n for n in z.namelist() if not n.endswith("/")]
+        inner = names[0] if names else ""
+        return sha256_hash.hexdigest(), inner
+    except Exception as e:
+        print(f"Error downloading/inspecting {url}: {e}")
+        return None, None
 
 def setup_winget_create():
     if not os.path.exists("wingetcreate.exe"):
@@ -53,7 +75,6 @@ def submit_chocolatey(row, version):
     license_url = row.get('license_url', '')
     project_url = row.get('homepage', 'https://archform.com')
     docs_url = row.get('docs_url', '')
-    mailing_list_url = row.get('mailing_list_url', '')
     project_source_url = row.get('project_source_url', '')
     
     repo_url = f"https://github.com/{os.environ.get('GITHUB_REPOSITORY', 'community/repo')}"
@@ -76,7 +97,6 @@ def submit_chocolatey(row, version):
     <tags>archform orthodontics dental design {edition}</tags>
     <packageSourceUrl>{repo_url}</packageSourceUrl>
     <docsUrl>{docs_url}</docsUrl>
-    <mailingListUrl>{mailing_list_url}</mailingListUrl>
     <projectSourceUrl>{project_source_url}</projectSourceUrl>
   </metadata>
   <files>
@@ -92,7 +112,6 @@ $packageArgs = @{{
   packageName   = $packageName
   unzipLocation = "$(Split-Path -Parent $MyInvocation.MyCommand.Definition)"
   url           = $url
-  softwareName  = 'ArchForm'
   checksum      = '{checksum}'
   checksumType  = 'sha256'
 }}
@@ -115,12 +134,17 @@ Install-ChocolateyZipPackage @packageArgs
 def submit_homebrew(edition, version, win_url, desc):
     if edition == 'dpa': return
     mac_url = win_url.replace('_win_', '_mac_')
-    sha = get_sha256(mac_url)
+    sha, inner = get_sha256_and_inner(mac_url)
     if not sha: return
 
     cask_id = f"archform-{edition}" if edition != 'standard' else "archform"
     token = os.environ['GH_PAT']
     repo_full_name = os.environ.get('GITHUB_REPOSITORY')
+    
+    if inner.lower().endswith('.pkg'):
+        artifact_line = f'  pkg "{inner}"'
+    else:
+        artifact_line = f'  app "{inner}"'
     
     cask_content = f"""cask "{cask_id}" do
   version "{version}"
@@ -131,7 +155,7 @@ def submit_homebrew(edition, version, win_url, desc):
   desc "{desc}"
   homepage "https://archform.com"
 
-  app "ArchForm.app"
+{artifact_line}
 end
 """
     path = f"Casks/{cask_id}.rb"
