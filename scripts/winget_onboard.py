@@ -70,7 +70,7 @@ def generate_manifests(edition, version, url, desc):
         "PackageLocale": "en-US",
         "Publisher": publisher,
         "PublisherUrl": "https://archform.com",
-        "PrivacyUrl": "https://www.archform.com/terms-of-service",
+        "PrivacyUrl": "https://www.archform.com/privacy",
         "Author": publisher,
         "PackageName": app_name,
         "PackageUrl": "https://archform.com",

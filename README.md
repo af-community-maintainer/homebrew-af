@@ -10,7 +10,7 @@ To install via Homebrew, first tap the community repository and then install the
 
 ```bash
 # Add the tap
-brew tap af-community-maintainer/tap
+brew tap af-community-maintainer/af
 
 # Install Standard Edition
 brew install archform
