@@ -5,6 +5,11 @@ on:
     paths:
       - 'packages.csv'
   workflow_dispatch:
+    inputs:
+      editions:
+        description: 'Comma-separated editions to distribute (empty = all)'
+        required: false
+        default: ''
 
 jobs:
   process-changes:
@@ -26,4 +31,5 @@ jobs:
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+          EDITIONS: ${{ github.event.inputs.editions }}
         run: python scripts/distribute.py

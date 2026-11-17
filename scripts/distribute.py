@@ -61,6 +61,12 @@ def submit_chocolatey(row, version):
     project_url = row.get('homepage', 'https://archform.com')
     docs_url = row.get('docs_url', '')
     project_source_url = row.get('project_source_url', '')
+    if not isinstance(project_source_url, str):
+        project_source_url = ''
+    # Guideline: projectSourceUrl must be real source code, not the marketing
+    # homepage — drop it when it adds no information.
+    if project_source_url.strip() == project_url.strip():
+        project_source_url = ''
     
     repo_url = "https://github.com/af-community-maintainer/chocolatey-af"
 
@@ -82,7 +88,6 @@ def submit_chocolatey(row, version):
     <tags>archform orthodontics dental design {edition}</tags>
     <packageSourceUrl>{repo_url}</packageSourceUrl>
     <docsUrl>{docs_url}</docsUrl>
-    <projectSourceUrl>{project_source_url}</projectSourceUrl>
   </metadata>
   <files>
     <file src="tools\\**" target="tools" />
@@ -103,6 +108,11 @@ $packageArgs = @{{
 
 Install-ChocolateyZipPackage @packageArgs
 """
+    if project_source_url.strip():
+        nuspec = nuspec.replace(
+            "    <docsUrl>{docs_url}</docsUrl>",
+            "    <docsUrl>{docs_url}</docsUrl>\n    <projectSourceUrl>{project_source_url}</projectSourceUrl>"
+        )
     with open(os.path.join("tools", "chocolateyinstall.ps1"), "w") as f:
         f.write(install_script)
     with open(f"{pkg_id}.nuspec", "w") as f:
@@ -163,7 +173,11 @@ def main():
 
     try:
         df = pd.read_csv('packages.csv')
+        wanted = [e.strip().lower() for e in os.environ.get('EDITIONS', '').split(',') if e.strip()]
         for _, row in df.iterrows():
+            if wanted and row['edition'].lower() not in wanted:
+                print(f"Skipping {row['edition']} (filtered).")
+                continue
             ver = str(row['version'])
             win_url = row['source_url_win']
             edition = row['edition'].lower()
