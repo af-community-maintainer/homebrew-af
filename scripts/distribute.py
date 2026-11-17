@@ -127,7 +127,13 @@ Install-ChocolateyZipPackage @packageArgs
     os.remove(f"{pkg_id}.nuspec")
 
 def submit_homebrew(edition, version, win_url, desc):
-    if edition == 'dpa': return
+    # At one point DPA had no mac build; it does now (ArchForm_mac_dpa_2_7_2_0.zip) so all editions ship.
+    if edition == 'dpa':
+        mac_url = win_url.replace('_win_', '_mac_')
+        probe = requests.head(mac_url, allow_redirects=True, timeout=30)
+        if probe.status_code >= 400:
+            return
+
     mac_url = win_url.replace('_win_', '_mac_')
     sha, inner = get_sha256_and_inner(mac_url)
     if not sha or not inner: return
