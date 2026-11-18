@@ -82,7 +82,7 @@ def submit_chocolatey(row, version):
     <projectUrl>{project_url}</projectUrl>
     <iconUrl>{icon_url}</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>{row['description']}</description>
+    <description>{row['description']} Paid licensing applies to this software; see the License link for terms.</description>
     <summary>{summary}</summary>
     <releaseNotes>{project_url}</releaseNotes>
     <tags>archform orthodontics dental design {edition}</tags>
@@ -95,18 +95,32 @@ def submit_chocolatey(row, version):
 </package>"""
 
     os.makedirs("tools", exist_ok=True)
+    # The zip contains a date-stamped NSIS installer, not a portable app:
+    # fetch -> verify -> unzip -> run silently -> clean up. (Reviewer request on
+    # archform 2.7.2, 2026-10-30: package must actually install the software.)
     install_script = rf"""
+$ErrorActionPreference = 'Stop'
 $packageName = '{pkg_id}'
 $url = '{url}'
-$packageArgs = @{{
-  packageName   = $packageName
-  unzipLocation = "$(Split-Path -Parent $MyInvocation.MyCommand.Definition)"
-  url           = $url
-  checksum      = '{checksum}'
-  checksumType  = 'sha256'
-}}
+$checksum = '{checksum}'
+$checksumType = 'sha256'
 
-Install-ChocolateyZipPackage @packageArgs
+$workDir = Join-Path $env:TEMP ("choco-" + $packageName)
+New-Item -ItemType Directory -Force -Path $workDir | Out-Null
+
+$zipPath = Join-Path $workDir 'installer.zip'
+Get-ChocolateyWebFile -PackageName $packageName -FileFullPath $zipPath -Url $url -Checksum $checksum -ChecksumType $checksumType
+Get-ChocolateyUnzip -FileFullPath $zipPath -Destination $workDir
+Remove-Item $zipPath -Force
+
+$innerExe = Get-ChildItem -Path $workDir -Filter '*.exe' | Select-Object -First 1
+if (-not $innerExe) {{ throw 'No installer exe found inside the downloaded zip.' }}
+
+try {{
+  Install-ChocolateyInstallPackage -PackageName $packageName -FileType 'exe' -SilentArgs '/S' -File $innerExe.FullName
+}} finally {{
+  Remove-Item $workDir -Recurse -Force -ErrorAction SilentlyContinue
+}}
 """
     if project_source_url.strip():
         nuspec = nuspec.replace(

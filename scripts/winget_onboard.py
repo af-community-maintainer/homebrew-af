@@ -72,15 +72,16 @@ def generate_manifests(edition, version, url, desc):
         "PackageVersion": version,
         "InstallerLocale": "en-US",
         "MinimumOSVersion": "10.0.0.0",
-        "InstallerType": "zip", 
-        "NestedInstallerType": "portable",
+        "InstallerType": "zip",
+        # The zip holds a date-stamped NSIS installer (verified Nullsoft Install
+        # System v3.01 in every edition) — install it, do not treat it as portable.
+        "NestedInstallerType": "nullsoft",
         "Installers": [{
             "Architecture": "x64",
             "InstallerUrl": url,
             "InstallerSha256": sha256,
             "NestedInstallerFiles": [{
-                "RelativeFilePath": inner_exe,
-                "PortableCommandAlias": edition if edition != 'standard' else "archform"
+                "RelativeFilePath": inner_exe
             }]
         }],
         "ManifestType": "installer",
