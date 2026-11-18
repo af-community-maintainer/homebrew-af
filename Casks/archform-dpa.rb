@@ -4,8 +4,7 @@ cask "archform-dpa" do
 
   url "https://download.archform.co/ArchForm_mac_dpa_2_7_2_0.zip"
   name "ArchForm Dpa"
-  name "ArchForm Direct Print"
-  desc "Professional Orthodontic Design with Direct Print tool"
+  desc "Professional Orthodontic Design with DPA tool"
   homepage "https://archform.com"
 
   pkg "ArchForm-mac-dpa_2_7_2_0-20260807.pkg"
